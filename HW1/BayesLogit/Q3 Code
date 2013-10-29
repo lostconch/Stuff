@@ -1,0 +1,84 @@
+# read the data
+mydata = read.table("/Users/conch/Desktop/breast_cancer.txt",header = T)
+
+# extract the response y from the data
+y<-as.numeric(mydata$diagnosis)-1
+
+# extract the covariates x from the data and form the design matrix X whose first column is (1,...,1)
+X<-matrix(c(rep(1,length(y)),mydata$area,mydata$compactness,mydata$concavepts,mydata$concavity,mydata$fracdim,mydata$perimeter,mydata$radius,mydata$smoothness,mydata$symmetry,mydata$texture),ncol = 11)
+
+# standardize the columns of X by subtracting the mean and dividing by the SD
+for (i in 2:11){
+	X[,i]<-(X[,i]-mean(X[,i]))/sd(X[,i])
+}
+
+# this main function implements an Metropolis-within-Gibbs algorithm
+bayes.logreg.Q3 <- function(y,X,beta.0,Sigma.0.inv,niter,burnin,retune){
+	
+	# intitialization of the proposal standard deviation
+	c <- 2.38/sqrt(length(beta.0))*rep(1,11)
+	
+	# B will store all the parameter values generated after the burnin period in a niter-by-11 matrix
+	B <- matrix(rep(0,11*niter),ncol=11)
+	
+	# intitialization of the parameter beta
+	beta <- rep(0,11)
+	
+	# s is a vector recording the number of acceptance within a tuning loop for each of the beta_k's
+	s <- rep(0,11)
+	
+	# total number of Gibbs iterations: burnin + niter
+	for (i in 1:(burnin+niter)){
+		
+		# update all the parameter components one by one within a Gibbs loop; do a single step of M-H for each component
+		for (k in 1:11){
+			# sample from the proposal distribution	 
+			beta_new <- rnorm(n=1, mean=beta[k], sd=c[k])	        
+	        # the updated parameter vector is the old parameter vector with its k-th component replaced by beta_new 
+	        beta_temp <- beta
+	        beta_temp[k] <- beta_new	        
+	        
+	        # compute the difference of the logarithms of the target conditional probability density between the updated and the old parameter vectors        
+	        sum <- -1/2*t(beta_temp-beta.0)%*%Sigma.0.inv%*%(beta_temp-beta.0) + 1/2*t(beta-beta.0)%*%Sigma.0.inv%*%(beta-beta.0)
+	        for (j in 1:length(y)){
+	        	sum<-sum+y[j]*X[j,k]*(beta_new-beta[k])+log((1+exp(X[j,]%*%beta))/(1+exp(X[j,]%*%beta_temp)))
+	        }
+	        
+	        # condition of acceptance
+		    if (log(runif(1)) < sum){
+			beta[k] <- beta_new
+			
+			# increase s by 1 if accepted
+			if (i<=burnin){
+				s[k] <- s[k]+1
+			    }
+		    }
+		}
+		
+		# begin to record the simulation results after the burnin period is over
+		if (i>burnin){
+				B[i-burnin,] <- beta
+			}
+			else{
+				
+				# tune the proposal standard deviation for each parameter component every "retune" steps in the burnin period
+				if (i%%retune==0){
+			    for (k in 1:11){
+			    	
+			    	# s[k]/retune gives the acceptance rate for the k-th component
+				    if (s[k]/retune<0.2 || s[k]/retune>0.6){
+				    # Increase/decrease the c[k] value if the acceptance rate is too high/low
+				    c[k] <- c[k]*qnorm(0.4/2)/qnorm(s[k]/retune/2)
+			    }
+			    }
+			    
+			    # reset s to the zero vector at the end of each tuning loop			  
+			    s <- rep(0,11)			   
+		    }
+		}
+	}
+	return(B)
+}
+
+# call the main function "bayes.logreg.Q3"
+w <- bayes.logreg.Q3(y, X, beta.0<-rep(0,11), Sigma.0.inv=1/1000*diag(1,11), niter=3000, burnin=1000, retune=100)
