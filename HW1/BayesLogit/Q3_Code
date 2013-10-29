@@ -1,3 +1,5 @@
+# This code implements a Metropolis-within-Gibbs MCMC sampler for Bayesian logistic regression, as a solution to Question 3. 
+
 # read the data
 mydata = read.table("/Users/conch/Desktop/breast_cancer.txt",header = T)
 
