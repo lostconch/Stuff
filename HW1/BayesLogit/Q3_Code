@@ -15,13 +15,13 @@ for (i in 2:11){
 # this main function implements an Metropolis-within-Gibbs algorithm
 bayes.logreg.Q3 <- function(y,X,beta.0,Sigma.0.inv,niter,burnin,retune){
 	
-	# intitialization of the proposal standard deviation
+	# intitialization of the proposal standard deviation vector
 	c <- 2.38/sqrt(length(beta.0))*rep(1,11)
 	
 	# B will store all the parameter values generated after the burnin period in a niter-by-11 matrix
 	B <- matrix(rep(0,11*niter),ncol=11)
 	
-	# intitialization of the parameter beta
+	# intitialization of the parameter vector beta
 	beta <- rep(0,11)
 	
 	# s is a vector recording the number of acceptance within a tuning loop for each of the beta_k's
